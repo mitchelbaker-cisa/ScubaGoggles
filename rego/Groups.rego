@@ -174,11 +174,11 @@ if {
 # Baseline GWS.GROUPS.4.1v0.1
 #--
 
-GetFriendlyValue4_1(Value) := "Anyone in the organization can create groups" if {
+GetFriendlyValue4_1(Value) := " Anyone in the organization can create groups" if {
     Value == "USERS_IN_DOMAIN"
-} else := "Anyone on the internet can create groups" if {
+} else := " Anyone on the internet can create groups" if {
     Value = "WORLD"
-} else := "Only organization admins can create groups" if {
+} else := " Only organization admins can create groups" if {
     Value = "ADMIN_ONLY"
 } else := Value
 
@@ -238,6 +238,22 @@ if {
 #
 # Baseline GWS.GROUPS.5.1v0.1
 #--
+GetFriendlyValue5_1(Value) := "Default permission to view conversation is set to 'Owners Only'." if {
+    Value == "OWNERS"
+} else := "Default permission to view conversation is set to 'Owners and Managers'." 
+if {
+    Value = "MANAGERS"
+} else := " Default permission to view conversation is set to 'All Group Members'."
+if {
+    Value = "MEMBERS"
+} else := " Default permission to view conversation is set to 'All Organization Users'."
+if {
+    Value = "DOMAIN_USERS"
+} else := " Default permission to view conversation is set to 'Anyone on the internet'."
+if {
+    Value = "PUBLIC"
+} else := Value
+
 NonCompliantOUs5_1 contains OU if {
     some OU in utils.OUsWithEvents
     Events := utils.FilterEvents(LogEvents, "GroupsSharingSettingsProto default_view_topics_access_level", OU)
@@ -267,7 +283,8 @@ if {
 tests contains {
     "PolicyId": "GWS.GROUPS.5.1v0.1",
     "Criticality": "Should",
-    "ReportDetails": utils.ReportDetailsOUs(NonCompliantOUs5_1),
+    "ReportDetails": concat("", [utils.ReportDetailsBoolean(Status), 
+    "<br>", GetFriendlyValue5_1(LastEvent.NewValue)]),
     "ActualValue": {"NonCompliantOUs": NonCompliantOUs5_1},
     "RequirementMet": Status,
     "NoSuchEvent": false
@@ -275,6 +292,7 @@ tests contains {
 if {
     SettingName := "GroupsSharingSettingsProto default_view_topics_access_level"
     Events := utils.FilterEvents(LogEvents, SettingName, utils.TopLevelOU)
+    LastEvent := utils.GetLastEvent(Events)
     count(Events) > 0
     Status := count(NonCompliantOUs5_1) == 0
 }
@@ -288,16 +306,6 @@ if {
 #
 # Baseline GWS.GROUPS.6.1v0.1
 #--
-NonCompliantOUs6_1 contains OU if {
-    some OU in utils.OUsWithEvents
-    Events := utils.FilterEvents(LogEvents, "GroupsSharingSettingsProto allow_unlisted_groups", OU)
-    # Ignore OUs without any events. We're already asserting that the
-    # top-level OU has at least one event; for all other OUs we assume
-    # they inherit from a parent OU if they have no events.
-    count(Events) > 0
-    LastEvent := utils.GetLastEvent(Events)
-    LastEvent.NewValue != "false"
-}
 
 tests contains {
     "PolicyId": "GWS.GROUPS.6.1v0.1",
@@ -309,22 +317,23 @@ tests contains {
 }
 if {
     DefaultSafe := false
-    Events := utils.FilterEvents(LogEvents, "GroupsSharingSettingsProto allow_unlisted_groups", utils.TopLevelOU)
+    Events := utils.FilterEventsNoOU(LogEvents, "GroupsSharingSettingsProto allow_unlisted_groups")
     count(Events) == 0
 }
 
 tests contains {
     "PolicyId": "GWS.GROUPS.6.1v0.1",
     "Criticality": "Shall",
-    "ReportDetails":utils.ReportDetailsOUs(NonCompliantOUs6_1),
-    "ActualValue": {"NonCompliantOUs": NonCompliantOUs6_1},
+    "ReportDetails":utils.ReportDetailsBoolean(Status),
+    "ActualValue": {LastEvent.Setting: LastEvent.NewValue},
     "RequirementMet": Status,
     "NoSuchEvent": false
 }
 if {
-    Events := utils.FilterEvents(LogEvents, "GroupsSharingSettingsProto allow_unlisted_groups", utils.TopLevelOU)
+    Events := utils.FilterEventsNoOU(LogEvents, "GroupsSharingSettingsProto allow_unlisted_groups")
     count(Events) > 0
-    Status := count(NonCompliantOUs6_1) == 0
+    LastEvent := utils.GetLastEvent(Events)
+    Status := LastEvent.NewValue == "false"
 }
 #--
 
