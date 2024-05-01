@@ -33,7 +33,9 @@ test_GroupConservationViewPermission_Correct_V1 if {
     count(RuleOutput) == 1
     RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement met in all OUs."
+    RuleOutput[0].ReportDetails == concat("", [
+    "Requirement met.", 
+    "<br> Default permission to view conversation is set to 'All Group Members'." ])
 }
 
 test_GroupConservationViewPermission_Correct_V2 if {
@@ -77,7 +79,9 @@ test_GroupConservationViewPermission_Correct_V2 if {
     count(RuleOutput) == 1
     RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails =="Requirement met in all OUs."
+    RuleOutput[0].ReportDetails == concat("", [
+    "Requirement met.", 
+    "<br> Default permission to view conversation is set to 'All Group Members'." ])
 }
 
 test_GroupConservationViewPermission_Incorrect_V1 if {
@@ -140,7 +144,11 @@ test_GroupConservationViewPermission_Incorrect_V2 if {
     count(RuleOutput) == 1
     not RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement failed in Test Top-Level OU."
+    RuleOutput[0].ReportDetails ==  concat("", [
+        "Requirement not met.",
+        "<br>", 
+        " Default permission to view conversation is set to 'All Organization Users'."
+        ])
 }
 
 test_GroupConservationViewPermission_Incorrect_V3 if {
@@ -171,7 +179,11 @@ test_GroupConservationViewPermission_Incorrect_V3 if {
     count(RuleOutput) == 1
     not RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement failed in Test Top-Level OU."
+    RuleOutput[0].ReportDetails == concat("", [
+        "Requirement not met.",
+        "<br>", 
+        " Default permission to view conversation is set to 'Owners and Managers'."
+        ])
 }
 
 test_GroupConservationViewPermission_Incorrect_V4 if {
@@ -202,7 +214,11 @@ test_GroupConservationViewPermission_Incorrect_V4 if {
     count(RuleOutput) == 1
     not RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement failed in Test Top-Level OU."
+    RuleOutput[0].ReportDetails == concat("", [
+        "Requirement not met.",
+        "<br>",
+        " Default permission to view conversation is set to 'Owners Only'."
+    ]) 
 }
 
 test_GroupConservationViewPermission_Incorrect_V5 if {
@@ -246,7 +262,11 @@ test_GroupConservationViewPermission_Incorrect_V5 if {
     count(RuleOutput) == 1
     not RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement failed in Test Top-Level OU."
+    RuleOutput[0].ReportDetails == concat("", [
+        "Requirement not met.",
+        "<br>", 
+        " Default permission to view conversation is set to 'All Organization Users'."
+        ])
 }
 
 test_GroupConservationViewPermission_Incorrect_V6 if {
@@ -290,7 +310,11 @@ test_GroupConservationViewPermission_Incorrect_V6 if {
     count(RuleOutput) == 1
     not RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement failed in Test Top-Level OU."
+    RuleOutput[0].ReportDetails == concat("", [
+        "Requirement not met.",
+        "<br>", 
+        " Default permission to view conversation is set to 'Owners and Managers'."
+        ])
 }
 
 test_GroupConservationViewPermission_Incorrect_V7 if {
@@ -334,6 +358,10 @@ test_GroupConservationViewPermission_Incorrect_V7 if {
     count(RuleOutput) == 1
     not RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement failed in Test Top-Level OU."
+    RuleOutput[0].ReportDetails == concat("", [
+        "Requirement not met.",
+        "<br>", 
+        " Default permission to view conversation is set to 'Owners Only'."
+        ])
 }
 #--

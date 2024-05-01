@@ -30,7 +30,7 @@ test_GroupCreation_Correct_V1 if {
     count(RuleOutput) == 1
     RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement met in all OUs."
+    RuleOutput[0].ReportDetails == "Requirement met. Only organization admins can create groups"
 }
 test_GroupCreation_Correct_V2 if {
     # Test group creation restrictions when there's multiple events and the most most recent is correct
@@ -67,7 +67,7 @@ test_GroupCreation_Correct_V2 if {
     count(RuleOutput) == 1
     RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement met in all OUs."
+    RuleOutput[0].ReportDetails == "Requirement met. Only organization admins can create groups"
 }
 
 test_GroupCreation_Incorrect_V1 if {
@@ -127,7 +127,7 @@ test_GroupCreation_Incorrect_V2 if {
     count(RuleOutput) == 1
     not RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails =="Requirement failed in Test Top-Level OU."
+    RuleOutput[0].ReportDetails == "Requirement not met. Anyone in the organization can create groups"
 }
 
 test_GroupCreation_Incorrect_V3 if {
@@ -165,6 +165,6 @@ test_GroupCreation_Incorrect_V3 if {
     count(RuleOutput) == 1
     not RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement failed in Test Top-Level OU."
+    RuleOutput[0].ReportDetails == "Requirement not met. Anyone in the organization can create groups"
 }
 #--

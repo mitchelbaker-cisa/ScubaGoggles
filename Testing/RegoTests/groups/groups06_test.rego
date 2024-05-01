@@ -30,7 +30,7 @@ test_GroupOwnersHideGroups_Correct_V1 if {
     count(RuleOutput) == 1
     RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement met in all OUs."
+    RuleOutput[0].ReportDetails == "Requirement met."
 }
 
 test_GroupOwnersHideGroups_Correct_V2 if {
@@ -68,7 +68,7 @@ test_GroupOwnersHideGroups_Correct_V2 if {
     count(RuleOutput) == 1
     RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement met in all OUs."
+    RuleOutput[0].ReportDetails == "Requirement met."
 }
 
 test_GroupOwnersHideGroups_Incorrect_V1 if {
@@ -128,7 +128,7 @@ test_GroupOwnersHideGroups_Incorrect_V2 if {
     count(RuleOutput) == 1
     not RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement failed in Test Top-Level OU."
+    RuleOutput[0].ReportDetails == "Requirement not met."
 }
 
 test_GroupOwnersHideGroups_Incorrect_V3 if {
@@ -166,9 +166,10 @@ test_GroupOwnersHideGroups_Incorrect_V3 if {
     count(RuleOutput) == 1
     not RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement failed in Test Top-Level OU."
+    RuleOutput[0].ReportDetails == "Requirement not met."
 }
 
+#What is this testing. There's no OUs for this setting, right? 
 test_GroupOwnersHideGroups_Incorrect_V4 if {
     PolicyId := "GWS.GROUPS.6.1v0.1"
     Output := tests with input as {
@@ -179,7 +180,7 @@ test_GroupOwnersHideGroups_Incorrect_V4 if {
                     "parameters": [
                         {"name": "SETTING_NAME", "value": "GroupsSharingSettingsProto allow_unlisted_groups"},
                         {"name": "NEW_VALUE", "value": "false"},
-                        {"name": "ORG_UNIT_NAME", "value": "Secondary Level OU"},
+                        {"name": "ORG_UNIT_NAME", "value": "Test Top-Level OU"},
                     ]
                 }]
             },
@@ -203,6 +204,6 @@ test_GroupOwnersHideGroups_Incorrect_V4 if {
     count(RuleOutput) == 1
     not RuleOutput[0].RequirementMet
     not RuleOutput[0].NoSuchEvent
-    RuleOutput[0].ReportDetails == "Requirement failed in Test Top-Level OU."
+    RuleOutput[0].ReportDetails == "Requirement not met."
 }
 #--

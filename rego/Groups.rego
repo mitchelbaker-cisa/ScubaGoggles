@@ -238,9 +238,9 @@ if {
 #
 # Baseline GWS.GROUPS.5.1v0.1
 #--
-GetFriendlyValue5_1(Value) := "Default permission to view conversation is set to 'Owners Only'." if {
+GetFriendlyValue5_1(Value) := " Default permission to view conversation is set to 'Owners Only'." if {
     Value == "OWNERS"
-} else := "Default permission to view conversation is set to 'Owners and Managers'." 
+} else := " Default permission to view conversation is set to 'Owners and Managers'." 
 if {
     Value = "MANAGERS"
 } else := " Default permission to view conversation is set to 'All Group Members'."
