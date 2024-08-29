@@ -18,23 +18,15 @@ on:
   workflow_dispatch:
     inputs:
       operating-system:
-        description: "Choose operating system(s)"
+        description: "Choose operating system(s), format must be an array of strings:"
         required: true
-        type: choice
-        default: "windows-latest"
-        options:
-          - windows-latest
-          - macos-latest
+        type: string
+        default: "['windows-latest', 'macos-latest']"
       python-version:
-        description: "Choose python version(s)"
+        description: "Choose python version(s), format must be an array of strings:"
         required: true
-        type: choice
-        default: "3.10"
-        options:
-          - "3.9"
-          - "3.10"
-          - "3.11"
-          - "3.12"
+        type: string
+        default: "['3.10']"
       opa-version:
         description: "Choose OPA version"
         required: true
@@ -46,10 +38,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ['${{ inputs.operating-system }}']
+        os: ${{ fromJSON(inputs.operating-system) }}
         # See https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json,
         # ctrl + f and search "python-3.<minor>.<patch>-<darwin-arm64/win32/linux>" for supported versions
-        python-version: ['${{ inputs.python-version }}'] # "3.8 fails with numpy uninstall"
+        python-version: ${{ fromJSON(inputs.python-version) }} # "3.8 fails with numpy uninstall"
     runs-on: ${{ matrix.os }}
     environment: Development
     steps:
