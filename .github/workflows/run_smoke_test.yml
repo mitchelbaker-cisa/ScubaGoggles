@@ -20,11 +20,11 @@ on:
       operating-system:
         description: "Choose operating system(s), format must be an array of strings:"
         type: string
-        default: "\"['windows-latest', 'macos-latest']\""
+        default: "['windows-latest', 'macos-latest']"
       python-version:
         description: "Choose python version(s), format must be an array of strings:"
         type: string
-        default: "\"['3.10']\""
+        default: "['3.10']"
       opa-version:
         description: "Choose OPA version"
         required: true
@@ -39,7 +39,7 @@ jobs:
         os: ${{ fromJson(inputs.operating-system) }}
         # See https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json,
         # ctrl + f and search "python-3.<minor>.<patch>-<darwin-arm64/win32/linux>" for supported versions
-        python-version: ${{ fromJson(inputs.python-version) }} # "3.8 fails with numpy uninstall"
+        python-version: ${{ fromJson(inputs.python-version) }}
     runs-on: ${{ matrix.os }}
     environment: Development
     steps:
