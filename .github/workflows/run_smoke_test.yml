@@ -1,7 +1,5 @@
 name: Run Smoke Test 
 on: 
-  workflow_call:
-  workflow_dispatch:
   pull_request:
     types: [opened, reopened]
     branches:
@@ -16,16 +14,42 @@ on:
     #  - ".github/actions/setup-dependencies-macos/action.yml"
     branches:
       - "main"
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      operating-system:
+        description: "Choose operating system(s)"
+        required: true
+        type: choice
+        default: "windows-latest"
+        options:
+          - windows-latest
+          - macos-latest
+      python-version:
+        description: "Choose python version(s)"
+        required: true
+        type: choice
+        default: "3.10"
+        options:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+      opa-version:
+        description: "Choose OPA version"
+        required: true
+        type: string
+        default: "0.59.0"
 
 jobs:
   smoke-test:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: ['${{ inputs.operating-system }}']
         # See https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json,
         # ctrl + f and search "python-3.<minor>.<patch>-<darwin-arm64/win32/linux>" for supported versions
-        python-version: ["3.9", "3.12"] # "3.8 fails with numpy uninstall"
+        python-version: ['${{ inputs.python-version }}'] # "3.8 fails with numpy uninstall"
     runs-on: ${{ matrix.os }}
     environment: Development
     steps:
@@ -44,7 +68,7 @@ jobs:
         uses: ./.github/actions/setup-dependencies-windows
         with:
           operating-system: "windows"
-          opa-version: "0.60.0"
+          opa-version: ${{ inputs.opa-version }}
           python-version: ${{ matrix.python-version }}
       
       - name: Setup Dependencies (macOS)
@@ -52,7 +76,7 @@ jobs:
         uses: ./.github/actions/setup-dependencies-macos
         with:
           operating-system: "macos"
-          opa-version: "0.60.0"
+          opa-version: ${{ inputs.opa-version }}
           python-version: ${{ matrix.python-version }}
       
       - name: Setup credentials for service account
