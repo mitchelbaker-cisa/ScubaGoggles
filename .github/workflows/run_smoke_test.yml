@@ -18,20 +18,16 @@ on:
       os:
         description: "Choose operating system(s), format must be an array of strings:"
         type: string
-        default: ${{ secrets.OS_DEFAULT }}
+        default: "['windows-latest', 'macos-latest']"
       python-version:
         description: "Choose python version(s), format must be an array of strings:"
         type: string
-        default: ${{ secrets.PYTHON_VERSION_DEFAULT }}
+        default: "['3.10']"
       opa-version:
         description: "Choose OPA version"
         required: true
         type: string
         default: "0.59.0"
-
-env:
-  OS_DEFAULT: "['windows-latest', 'macos-latest']"
-  PYTHON_VERSION_DEFAULT: "['3.10']"
 
 jobs:
   smoke-test:
