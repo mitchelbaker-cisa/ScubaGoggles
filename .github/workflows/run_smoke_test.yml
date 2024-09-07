@@ -34,10 +34,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJson(inputs.os) || fromJson("['windows-latest', 'macos-latest']") }}
+        os: ${{ fromJson(inputs.os) || fromJson(['windows-latest', 'macos-latest']) }}
         # See https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json,
         # ctrl + f and search "python-3.<minor>.<patch>-<darwin-arm64/win32/linux>" for supported versions
-        python-version: ${{ fromJson(inputs.python-version) || fromJson("['3.10']") }}
+        python-version: ${{ fromJson(inputs.python-version) || fromJson(['3.10']) }}
     runs-on: ${{ matrix.os }}
     environment: Development
     steps:
