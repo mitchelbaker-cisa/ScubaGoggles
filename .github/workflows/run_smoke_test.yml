@@ -19,12 +19,12 @@ on:
         description: "Choose operating system(s), format must be an array of strings:"
         type: string
         #default: "['windows-latest', 'macos-latest']"
-        default: "windows-latest, macos-latest"
+        default: "'windows-latest', 'macos-latest'"
       python-version:
         description: "Choose python version(s), format must be an array of strings:"
         type: string
         #default: "['3.10']"
-        default: "3.10"
+        default: "'3.10'"
       opa-version:
         description: "Choose OPA version"
         required: true
