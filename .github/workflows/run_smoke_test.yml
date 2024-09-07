@@ -31,6 +31,7 @@ on:
 
 jobs:
   smoke-test:
+    environment: Development
     strategy:
       fail-fast: false
       matrix:
@@ -39,7 +40,6 @@ jobs:
         # ctrl + f and search "python-3.<minor>.<patch>-<darwin-arm64/win32/linux>" for supported versions
         python-version: ${{ fromJSON(inputs.python-version) || fromJSON(secrets.PYTHON_VERSION_DEFAULT) }}
     runs-on: ${{ matrix.os }}
-    environment: Development
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
