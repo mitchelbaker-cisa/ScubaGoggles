@@ -29,15 +29,19 @@ on:
         type: string
         default: "0.59.0"
 
+env:
+  OS_DEFAULT: "['windows-latest', 'macos-latest']"
+  PYTHON_VERSION_DEFAULT: "['3.10']"
+
 jobs:
   smoke-test:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.os) || fromJSON("['windows-latest', 'macos-latest']") }}
+        os: ${{ fromJSON(inputs.os) || fromJSON($OS_DEFAULT) }}
         # See https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json,
         # ctrl + f and search "python-3.<minor>.<patch>-<darwin-arm64/win32/linux>" for supported versions
-        python-version: ${{ fromJSON(inputs.python-version) || fromJSON("['3.10']") }}
+        python-version: ${{ fromJSON(inputs.python-version) || fromJSON($PYTHON_VERSION_DEFAULT) }}
     runs-on: ${{ matrix.os }}
     environment: Development
     steps:
