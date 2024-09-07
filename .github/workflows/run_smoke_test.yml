@@ -39,10 +39,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.os) }} || ${{ fromJSON(env.OS_DEFAULT) }}
+        os: ${{ fromJSON(inputs.os) }} || ${{ fromJSON(OS_DEFAULT) }}
         # See https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json,
         # ctrl + f and search "python-3.<minor>.<patch>-<darwin-arm64/win32/linux>" for supported versions
-        python-version: ${{ fromJSON(inputs.python-version) }} || ${{ fromJSON(env.PYTHON_VERSION_DEFAULT) }}
+        python-version: ${{ fromJSON(inputs.python-version) }} || ${{ fromJSON(PYTHON_VERSION_DEFAULT) }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
