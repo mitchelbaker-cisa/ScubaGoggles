@@ -18,20 +18,16 @@ on:
       os:
         description: "Choose operating system(s), format must be an array of strings:"
         type: string
-        default: "windows-latest, macos-latest"
+        default: "['windows-latest', 'macos-latest']"
       python-version:
         description: "Choose python version(s), format must be an array of strings:"
         type: string
-        default: "3.10"
+        default: "['3.10']"
       opa-version:
         description: "Choose OPA version"
         required: true
         type: string
         default: "0.59.0"
-
-env:
-  OS_DEFAULT: ${{ inputs.os || "windows-latest, macos-latest" }}
-  PYTHON_VERSION_DEFAULT: ${{ inputs.python-version || "3.10" }}
 
 jobs:
   smoke-test:
@@ -39,12 +35,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        #os: ${{ fromJSON(inputs.os) }}
-        os: ['${{ env.OS_DEFAULT }}']
+        os: ${{ fromJSON(inputs.os) }}
         # See https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json,
         # ctrl + f and search "python-3.<minor>.<patch>-<darwin-arm64/win32/linux>" for supported versions
-        #python-version: ${{ fromJSON(inputs.python-version) }}
-        python-version: ['${{ env.PYTHON_VERSION_DEFAULT }}']
+        python-version: ${{ fromJSON(inputs.python-version) }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
