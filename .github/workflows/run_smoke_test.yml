@@ -17,10 +17,12 @@ on:
     inputs:
       os:
         description: "Choose operating system(s), format must be an array of strings:"
+        required: true
         type: string
         default: "['windows-latest', 'macos-latest']"
       python-version:
         description: "Choose python version(s), format must be an array of strings:"
+        required: true
         type: string
         default: "['3.10']"
       opa-version:
