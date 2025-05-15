@@ -35,20 +35,20 @@ This section determines what information is shared from calendars with external 
 
 ### Policies
 
-#### GWS.CALENDAR.1.1v0.4
+#### GWS.CALENDAR.1.1v1
 External Sharing Options for Primary Calendars SHALL be configured to "Only free/busy information (hide event details)."
 
 - _Rationale:_ Calendars can contain private or otherwise sensitive information. Restricting calendar details to only free/busy information helps prevent data leakage by restricting the amount of information that is externally viewable when a user shares their calendar with someone external to your organization.
-- _Last modified:_ July 10, 2023
+- _Last modified:_ July 2023
 
 - MITRE ATT&CK TTP Mapping
   - [T1530: Data from Cloud Storage](https://attack.mitre.org/techniques/T1530/)
 
-#### GWS.CALENDAR.1.2v0.4
+#### GWS.CALENDAR.1.2v1
 External sharing options for secondary calendars SHALL be configured to "Only free/busy information (hide event details)."
 
 - _Rationale:_ Calendars can contain private or otherwise sensitive information. Restricting calendar details to only free/busy information helps prevent data leakage by restricting the amount of information that is externally viewable when a user shares their calendar with someone external to your organization.
-- _Last modified:_ July 10, 2023
+- _Last modified:_ July 2023
 
 - MITRE ATT&CK TTP Mapping
   - [T1530: Data from Cloud Storage](https://attack.mitre.org/techniques/T1530/)
@@ -66,14 +66,14 @@ External sharing options for secondary calendars SHALL be configured to "Only fr
 
 To configure the settings for External Sharing in Primary Calendar:
 
-#### GWS.CALENDAR.1.1v0.4 Instructions
+#### GWS.CALENDAR.1.1v1 Instructions
 1.  Sign in to the [Google Admin Console](https://admin.google.com).
 2.  Select **Apps** -\> **Google Workspace** -\> **Calendar**.
 3.  Select **Sharing settings** -\> **External sharing options for primary calendars**.
 4.  Select **Only free/busy information (hide event details)**.
 5.  Select **Save**.
 
-#### GWS.CALENDAR.1.2v0.4 Instructions
+#### GWS.CALENDAR.1.2v1 Instructions
 
 To configure the settings for External Sharing in secondary calendars:
 
@@ -89,11 +89,11 @@ This section determines whether users are warned when inviting one or more guest
 
 ### Policies
 
-#### GWS.CALENDAR.2.1v0.4
+#### GWS.CALENDAR.2.1v1
 External invitations warnings SHALL be enabled to prompt users before sending invitations.
 
 - _Rationale:_ Users may inadvertently include external guests in calendar event invitations, potentially resulting in data leakage. Warning users when external participants are included can help reduce this risk.
-- _Last modified:_ July 10, 2023
+- _Last modified:_ July 2023
 
 - MITRE ATT&CK TTP Mapping
   - [T1530: Data from Cloud Storage](https://attack.mitre.org/techniques/T1530/)
@@ -113,7 +113,7 @@ External invitations warnings SHALL be enabled to prompt users before sending in
 
 ### Implementation
 
-#### GWS.CALENDAR.2.1v0.4 Instructions
+#### GWS.CALENDAR.2.1v1 Instructions
 
 To configure the settings for Confidential Mode:
 
@@ -131,11 +131,11 @@ Due to the added complexity and attack surface associated with configuring Calen
 
 ### Policies
 
-#### GWS.CALENDAR.3.1v0.4
+#### GWS.CALENDAR.3.1v1
 Calendar Interop SHOULD be disabled.
 
 - _Rationale:_ Enabling Calendar interop adds a layer of complexity to Calendar management, possibly increasing the attack surface. Disabling this feature unless required by the organization conforms to the principle of least functionality.
-- _Last modified:_ July 10, 2023
+- _Last modified:_ July 2023
 - Notes
   - This policy applies unless agency mission fulfillment requires collaboration between users internal and external to an organization who use both Microsoft Exchange and Google Calendar
 
@@ -143,11 +143,11 @@ Calendar Interop SHOULD be disabled.
   - [T1530: Data from Cloud Storage](https://attack.mitre.org/techniques/T1530/)
   - [T1199: Trusted Relationship](https://attack.mitre.org/techniques/T1199/)
 
-#### GWS.CALENDAR.3.2v0.4
+#### GWS.CALENDAR.3.2v1
 OAuth 2.0 SHALL be used in lieu of basic authentication to establish connectivity between tenants or organizations in cases where Calendar Interop is deemed necessary for agency mission fulfillment.
 
 - _Rationale:_ Basic authentication is a deprecated and risk-prone authentication method. Using OAuth 2.0 helps reduce the risk of credential compromise.
-- _Last modified:_ July 10, 2023
+- _Last modified:_ July 2023
 
 - MITRE ATT&CK TTP Mapping
   - [T1555: Credentials from Password Stores](https://attack.mitre.org/techniques/T1555/)
@@ -163,25 +163,28 @@ OAuth 2.0 SHALL be used in lieu of basic authentication to establish connectivit
 
 ### Implementation
 
-#### GWS.CALENDAR.3.1v0.4 Instructions
+#### GWS.CALENDAR.3.1v1 Instructions
 
 To configure the settings for Calendar Interop:
 
 1.  Sign in to the [Google Admin Console](https://admin.google.com).
 2.  Select **Apps -\> Google Workspace -\> Calendar**.
 3.  Select **Calendar Interop management**.
-4.  Uncheck the **Enable Interoperability for Calendar** checkbox.
-5.  Select **Save**.
+4.  Select **Exchange availability in Calendar**.
+5.  Uncheck the **Allow Google Calendar to display Exchange users availability** checkbox.
+6.  Select **Save**.
 
-#### GWS.CALENDAR.3.2v0.4 Instructions
+#### GWS.CALENDAR.3.2v1 Instructions
 
 To configure the settings for Calendar Interop:
 
 1.  Sign in to the [Google Admin Console](https://admin.google.com).
 2.  Select **Apps -\> Google Workspace -\> Calendar**.
 3.  Select **Calendar Interop management**.
-4.  Select **OAuth 2.0 client credentials**
-5.  Select **Save**.
+4.  Select **Exchange availability in Calendar**.
+5.  Select **Allow Google Calendar to display Exchange users availability**.
+6.  Select **OAuth 2.0 client credentials**
+7.  Select **Save**.
 
 ## 4. Paid Appointments
 
@@ -189,11 +192,11 @@ This section covers whether or not the paid appointment booking feature is enabl
 
 ### Policies
 
-#### GWS.CALENDAR.4.1v0.4
+#### GWS.CALENDAR.4.1v1
 Appointment Schedule with Payments SHALL be disabled.
 
 - _Rationale:_ Enabling paid appointments adds a layer of complexity to Calendar management, possibly increasing the attack surface. Disabling this feature conforms to the principle of least functionality.
-- _Last modified:_ July 10, 2023
+- _Last modified:_ July 2023
 
 - MITRE ATT&CK TTP Mapping
   - [T1530: Data from Cloud Storage](https://attack.mitre.org/techniques/T1530/)
@@ -201,7 +204,7 @@ Appointment Schedule with Payments SHALL be disabled.
 
 ### Resources
 
--   [Google Workspace Help: Allow paid appointment schedules in Calendar](https://apps.google.com/supportwidget/articlehome?article_url=https%3A%2F%2Fsupport.google.com%2Fa%2Fanswer%2F13765946&assistant_id=generic-unu&product_context=13765946&product_name=UnuFlow&trigger_context=a)
+-   [Google Workspace Help: Allow paid appointment schedules in Calendar](https://support.google.com/a/answer/13765946?hl=en)
 
 ### Prerequisites
 
@@ -209,10 +212,10 @@ Appointment Schedule with Payments SHALL be disabled.
 
 ### Implementation
 
-#### GWS.CALENDAR.4.1v0.4 Instructions
+#### GWS.CALENDAR.4.1v1 Instructions
 
 1.  Sign in to the [Google Admin Console](https://admin.google.com).
 2.  Select **Apps -\> Google Workspace -\> Calendar**.
 3.  Select **Advanced Settings -\> Appointment schedules with payments**
-4.  Select **OFF- Blocks users' from adding required payments to their Calendar appointment schedules**
-5.  Select **Save**
+4.  Ensure the **Allow appointment schedule users to require payments for booked appointments through their own payment provider accounts** checkbox is unchecked.
+5.  Select **Save**.

@@ -5,6 +5,7 @@ import io
 import logging
 import time
 import warnings
+import json
 
 from datetime import datetime
 from html import escape
@@ -32,18 +33,22 @@ class Reporter:
     # pylint: disable-next=too-many-positional-arguments
     def __init__(self,
                  product: str,
+                 tenant_id: str,
+                 tenant_name: str,
                  tenant_domain: str,
                  main_report_name: str,
                  prod_to_fullname: dict,
                  product_policies: list,
                  successful_calls: set,
                  unsuccessful_calls: set,
+                 missing_policies: set,
                  omissions: dict,
-                 progress_bar = None):
-
+                 progress_bar=None):
         """Reporter class initialization
 
         :param product: name of product being tested
+        :param tenant_id: Unique ID of GWS Customer
+        :param tenant_name: Customer name
         :param tenant_domain: The primary domain of the GWS org
         :param main_report_name: Name of the main report HTML file.
         :param prod_to_fullname: mapping of the product full names
@@ -51,6 +56,8 @@ class Reporter:
             read from the baseline markdown
         :param successful_calls: set with the set of successful calls
         :param unsuccessful_calls: set with the set of unsuccessful calls
+        :param missing_policies: set with the set of policies missing from the
+            policy API output
         :param omissions: dict with the omissions specified in the config
             file (empty dict if none omitted)
         :param progress_bar: Optional TQDM instance. If provided, the
@@ -59,17 +66,25 @@ class Reporter:
         """
 
         self._product = product
+        self._tenant_id = tenant_id
+        self._tenant_name = tenant_name
         self._tenant_domain = tenant_domain
         self._main_report_name = main_report_name
         self._product_policies = product_policies
         self._successful_calls = successful_calls
         self._unsuccessful_calls = unsuccessful_calls
+        self._missing_policies = set()
+        for policy in missing_policies:
+            # Prepend each missing policy with "policy/" as that's how they are
+            # listed in the rego
+            self._missing_policies.add(f'policy/{policy}')
         self._full_name = prod_to_fullname[product]
         self._omissions = {
             # Lowercase all the keys for case-insensitive comparisons
             key.lower(): value for key, value in omissions.items()
         }
         self.progress_bar = progress_bar
+        self.rules_table = None
 
     @staticmethod
     def _get_test_result(requirement_met: bool,
@@ -108,7 +123,6 @@ class Reporter:
 
     @staticmethod
     def create_html_table(table_data: list) -> str:
-
         """Creates an HTML Table for the results of the Rego Scan
 
         :param list table_data: list of dictionaries containing the results of
@@ -151,7 +165,10 @@ class Reporter:
         return table_html
 
     @classmethod
-    def build_front_page_html(cls, fragments: list, tenant_info: dict) -> str:
+    def build_front_page_html(cls,
+                              fragments: list,
+                              tenant_info: dict,
+                              report_uuid: str) -> str:
         """
         Builds the Front Page Report using the HTML Report Template
 
@@ -161,18 +178,18 @@ class Reporter:
 
         template_file = (cls._reporter_path
                          / 'FrontPageReport/FrontPageReportTemplate.html')
-        html = template_file.read_text(encoding = 'utf-8')
+        html = template_file.read_text(encoding='utf-8')
 
         table = ''.join(fragments)
 
         main_css_file = cls._reporter_path / 'styles/main.css'
-        css = main_css_file.read_text(encoding = 'utf-8')
+        css = main_css_file.read_text(encoding='utf-8')
         html = html.replace('{{MAIN_CSS}}', f'<style>{css}</style>')
 
         front_css_file = cls._reporter_path / 'styles/FrontPageStyle.css'
-        css = front_css_file.read_text(encoding = 'utf-8')
+        css = front_css_file.read_text(encoding='utf-8')
         html = html.replace('{{FRONT_CSS}}', f'<style>{css}</style>')
-
+        html = html.replace('{{report_uuid}}', report_uuid)
         html = html.replace('{{TABLE}}', table)
 
         now = datetime.now()
@@ -180,8 +197,10 @@ class Reporter:
                        + ' ' + time.tzname[time.daylight])
 
         meta_data = ('<table style = "text-align:center;">'
-                     '<tr><th>Customer Domain</th><th>Report Date</th></tr>'
-                     f'<tr><td>{tenant_info["domain"]}</td><td>{report_date}'
+                     '<tr><th>Customer Name</th><th>Customer Domain</th>'
+                     '<th>Customer ID</th><th>Report Date</th></tr>'
+                     f'<tr><td>{tenant_info["topLevelOU"]}</td><td>{tenant_info["domain"]}</td>'
+                     f'<td>{tenant_info["ID"]}</td><td>{report_date}'
                      '</td></tr></table>')
 
         html = html.replace('{{TENANT_DETAILS}}', meta_data)
@@ -189,7 +208,7 @@ class Reporter:
 
         return html
 
-    def _is_control_omitted(self, control_id : str) -> bool:
+    def _is_control_omitted(self, control_id: str) -> bool:
         """
         Determine if the supplied control was marked for omission in the
         config file and if the expiration date has passed, if applicable.
@@ -220,9 +239,9 @@ class Reporter:
             except ValueError:
                 # Malformed date, don't omit the policy
                 warning = (f'Config file indicates omitting {control_id}, '
-                    f'but the provided expiration date, {raw_date}, is '
-                    'malformed. The expected format is yyyy-mm-dd. Control'
-                    ' will not be omitted.')
+                           f'but the provided expiration date, {raw_date}, is '
+                           'malformed. The expected format is yyyy-mm-dd. Control'
+                           ' will not be omitted.')
                 self._warn(warning, RuntimeWarning)
                 return False
             now = datetime.now()
@@ -231,12 +250,12 @@ class Reporter:
                 return True
             # The expiration date is passed, don't omit the policy
             warning = (f'Config file indicates omitting {control_id}, but '
-                f'the provided expiration date, {raw_date}, has passed. '
-                'Control will not be omitted.')
+                       f'the provided expiration date, {raw_date}, has passed. '
+                       'Control will not be omitted.')
             self._warn(warning, RuntimeWarning)
         return False
 
-    def _get_omission_rationale(self, control_id : str) -> str:
+    def _get_omission_rationale(self, control_id: str) -> str:
         """
         Return the rationale indicated in the config file for the indicated
         control, if provided. If not, return a string warning the user that
@@ -252,33 +271,35 @@ class Reporter:
         # If any of the following conditions is true, no rationale was
         # provided
         no_rationale = ((self._omissions[control_id] is None) or
-            ('rationale' not in self._omissions[control_id]) or
-            (self._omissions[control_id]['rationale'] is None) or
-            (self._omissions[control_id]['rationale'] == ''))
+                        ('rationale' not in self._omissions[control_id]) or
+                        (self._omissions[control_id]['rationale'] is None) or
+                        (self._omissions[control_id]['rationale'] == ''))
         if no_rationale:
             warning = (f'Config file indicates omitting {control_id}, but '
-                'no rationale provided.')
+                       'no rationale provided.')
             self._warn(warning, RuntimeWarning)
             return 'Rationale not provided.'
         return self._omissions[control_id]['rationale']
 
-    def _build_report_html(self, fragments: list) -> str:
+    def _build_report_html(self, fragments: list, rules_data : dict) -> str:
         """
         Adds data into HTML Template and formats the page accordingly
 
         :param fragments: list object containing each baseline
+        :param rules_data: the 'actual_value' for GWS.COMMONCONTROLS.13.1 if
+            present, None otherwise
         """
 
         template_file = (self._reporter_path
                          / 'IndividualReport/IndividualReportTemplate.html')
-        html = template_file.read_text(encoding = 'utf-8')
+        html = template_file.read_text(encoding='utf-8')
 
         main_css_file = self._reporter_path / 'styles/main.css'
-        css = main_css_file.read_text(encoding = 'utf-8')
+        css = main_css_file.read_text(encoding='utf-8')
         html = html.replace('{{MAIN_CSS}}', f'<style>{css}</style>')
 
         main_js_file = self._reporter_path / 'scripts/main.js'
-        javascript = main_js_file.read_text(encoding = 'utf-8')
+        javascript = main_js_file.read_text(encoding='utf-8')
         html = html.replace('{{MAIN_JS}}', f'<script>{javascript}</script>')
 
         title = self._full_name + ' Baseline Report'
@@ -305,9 +326,11 @@ class Reporter:
         report_date = (now.strftime('%m/%d/%Y %H:%M:%S')
                        + ' ' + time.tzname[time.daylight])
         meta_data = (f'<table style = "text-align:center;">'
-                     '<tr><th>Customer Domain</th><th>Report Date</th>'
+                     '<tr><th>Customer Name</th><th>Customer Domain</th>'
+                     '<th>Customer ID</th><th>Report Date</th>'
                      '<th>Baseline Version</th><th>Tool Version</th></tr>'
-                     f'<tr><td>{self._tenant_domain}</td><td>{report_date}</td>'
+                     f'<tr><td>{self._tenant_name}</td><td>{self._tenant_domain}</td>'
+                     f'<td>{self._tenant_id}</td><td>{report_date}</td>'
                      f'<td>{Version.suffix}</td><td>{Version.current}</td></tr>'
                      '</table>')
 
@@ -316,6 +339,41 @@ class Reporter:
         collected = ''.join(fragments)
 
         html = html.replace('{{TABLES}}', collected)
+        if rules_data:
+            alert_descriptions = json.loads((self._reporter_path
+                         / 'IndividualReport/AlertsDescriptions.json').read_text())
+            rules_html = '<hr>'
+            rules_html += '<h2 id="alerts">System Defined Alerts</h2>'
+            rules_html += '<p>Note: As ScubaGoggles currently relies on admin log events '
+            rules_html += 'to determine alert status, ScubaGoggles will not be able to '
+            rules_html += 'determine the current status of any alerts whose state has '
+            rules_html += 'not changed recently.</p>'
+            rules_table = []
+            for rule in rules_data['enabled_rules']:
+                rules_table.append({
+                    'Alert Name': rule,
+                    'Description': alert_descriptions[rule],
+                    'Status': 'Enabled'
+                })
+            for rule in rules_data['disabled_rules']:
+                rules_table.append({
+                    'Alert Name': rule,
+                    'Description': alert_descriptions[rule],
+                    'Status': 'Disabled'
+                })
+            for rule in rules_data['unknown']:
+                rules_table.append({
+                    'Alert Name': rule,
+                    'Description': alert_descriptions[rule],
+                    'Status': 'Unknown'
+                })
+            rules_table.sort(key=lambda rule: rule['Alert Name'])
+            rules_html += self.create_html_table(rules_table)
+            html = html.replace('{{RULES}}', rules_html)
+            # Save the rules table to the object so the orchestrator can access it
+            self.rules_table = rules_table
+        else:
+            html = html.replace('{{RULES}}', '')
         return html
 
     def _get_failed_prereqs(self, test: dict) -> set:
@@ -328,18 +386,29 @@ class Reporter:
         """
 
         if 'Prerequisites' not in test:
-            # If Prerequisites is not defined, assume the test just depends
-            # on the reports API.
-            prereqs = {'reports/v1/activities/list'}
-        else:
-            prereqs = set(test['Prerequisites'])
+            prereqs = {}
+            raise RuntimeError(f'No prerequisites found for {test["PolicyId"]}')
 
-        # A call is failed if it is either missing from the successful_calls
-        # set or present in the unsuccessful_calls
+        prereqs = test['Prerequisites']
+
+        policy_prereqs = set()
+        other_prereqs = set()
+        for prereq in prereqs:
+            if prereq.startswith('policy/'):
+                policy_prereqs.add(prereq)
+            else:
+                other_prereqs.add(prereq)
+
+        # A function/API call is failed if it is either missing from the
+        # successful_calls set or present in the unsuccessful_calls
         failed_prereqs = set().union(
-            prereqs.difference(self._successful_calls),
-            prereqs.intersection(self._unsuccessful_calls)
+            other_prereqs.difference(self._successful_calls),
+            other_prereqs.intersection(self._unsuccessful_calls)
         )
+
+        # Add any missing policies to the failed prereq set
+        failed_prereqs = failed_prereqs.union(
+            self._missing_policies.intersection(policy_prereqs))
 
         return failed_prereqs
 
@@ -355,17 +424,39 @@ class Reporter:
 
         failed_apis = [API_LINKS[api] for api in failed_prereqs
                        if api in API_LINKS]
-        failed_functions = [call for call in failed_prereqs
-                            if call not in API_LINKS]
+        missing_policies = [prereq for prereq in failed_prereqs
+                            if prereq.startswith('policy/')]
+        failed_functions = failed_prereqs.difference(failed_apis,
+                                                    missing_policies)
+
         failed_details = ''
         if len(failed_apis) > 0:
             links = ', '.join(failed_apis)
-            failed_details += ('This test depends on the following API call(s) '
-                               f'which did not execute successfully: {links}.')
+            failed_details += ('This test depends on the following API '
+                               'call(s) which did not execute successfully: '
+                               f'{links}. ')
+
+        if len(missing_policies) > 0:
+            # [7:] in the following line removes the leading "policy/" from the
+            # string, that's not actually part of the setting name, the Rego
+            # includes that just to disambiguate the policy settings from the
+            # function prereqs
+            styled_policies = [f'<pre>{policy[7:]}</pre>'
+                                for policy in missing_policies]
+            policy_str = ''.join(styled_policies)
+            is_plural = len(missing_policies) != 1
+            failed_details += 'This test depends on the following '
+            failed_details += 'settings ' if is_plural else 'setting '
+            failed_details += 'returned by the policy API but '
+            failed_details += 'are ' if is_plural else 'is '
+            failed_details += f'unexpectedly missing or invalid: {policy_str} '
+
         if len(failed_functions) > 0:
+            function_str = ', '.join(failed_functions)
             failed_details += ('This test depends on the following '
                                'function(s) which did not execute '
-                               f"successfully: {', '.join(failed_functions)}.")
+                               f'successfully: {function_str}. ')
+
         failed_details += 'See terminal output for more details.'
         return failed_details
 
@@ -387,31 +478,6 @@ class Reporter:
         if result == 'Pass':
             return 'Passes'
         raise ValueError(f'Unexpected result, {result}', RuntimeWarning)
-
-    def _handle_rules_omission(self, control_id : str, tests : list):
-        """Process the test results for the rules report if the rules control
-        was omitted.
-
-        :control_id: The control ID for the rules control.
-        :tests: A list of test result dictionaries.
-        """
-        table_data = []
-        for test in tests:
-            if 'Not-Implemented' in test['Criticality']:
-                # The easiest way to identify the common controls "rules"
-                # results that belong to the Common Controls report is they're
-                # marked as Not-Implemented. This if excludes them from the
-                # rules report.
-                continue
-            rationale = self._get_omission_rationale(control_id)
-            table_data.append({
-                'Control ID': control_id,
-                'Rule Name': test['Requirement'],
-                'Result': 'Omitted',
-                'Criticality': test['Criticality'],
-                'Rule Description': f'N/A; test omitted by user. {rationale}'
-            })
-        return table_data
 
     def _warn(self, *args, **kwargs):
         """
@@ -452,6 +518,7 @@ class Reporter:
             'Omit': 0
         }
 
+        rules_data = None
         for baseline_group in self._product_policies:
             table_data = []
             results_data = {}
@@ -471,39 +538,58 @@ class Reporter:
                         'Requirement': requirement,
                         'Result': 'Error - Test results missing',
                         'Criticality': '-',
-                        'Details': f'Report issue on {issues_link}'})
+                        'Details': f'Report issue on {issues_link}', 
+                        'OmittedEvaluationResult': 'N/A',
+                        'OmittedEvaluationDetails': 'N/A'
+                        })
                     log.error('No test results found for Control Id %s',
                               control_id)
                     continue
+
                 if self._is_control_omitted(control_id):
                     # Handle the case where the control was omitted
-                    if product_capitalized == 'Rules':
-                        # Rules is a special case
-                        rules_data = self._handle_rules_omission(control_id, tests)
-                        table_data.extend(rules_data)
-                        report_stats['Omit'] += len(rules_data)
-                        continue
-                    report_stats['Omit'] += 1
                     rationale = self._get_omission_rationale(control_id)
+
+                    omitted_result = 'N/A'
+                    omitted_details = 'N/A'
+
+                    for test in tests:
+                        result = self._get_test_result(test['RequirementMet'],
+                                                        test['Criticality'],
+                                                        test['NoSuchEvent'])
+                        details = test['ReportDetails']
+                        omitted_result = result
+                        omitted_details = details
+
                     table_data.append({
                         'Control ID': control_id,
                         'Requirement': requirement,
                         'Result': 'Omitted',
                         'Criticality': tests[0]['Criticality'],
-                        'Details': f'Test omitted by user. {rationale}'
+                        'Details': f'Test omitted by user. {rationale}',
+                        'OmittedEvaluationResult': omitted_result,
+                        'OmittedEvaluationDetails': omitted_details
                     })
                     continue
+
                 for test in tests:
                     failed_prereqs = self._get_failed_prereqs(test)
                     if len(failed_prereqs) > 0:
                         report_stats['Errors'] += 1
-                        failed_details = self._get_failed_details(failed_prereqs)
+                        failed_details = self._get_failed_details(
+                            failed_prereqs)
                         table_data.append({'Control ID': control_id,
                                            'Requirement': requirement,
                                            'Result': 'Error',
                                            'Criticality': test['Criticality'],
-                                           'Details': failed_details})
+                                           'Details': failed_details, 
+                                           'OmittedEvaluationResult': 'N/A',
+                                           'OmittedEvaluationDetails': 'N/A'})
                         continue
+
+                    if control_id.startswith('GWS.COMMONCONTROLS.13.1'):
+                        rules_data = test['ActualValue']
+
                     result = self._get_test_result(test['RequirementMet'],
                                                     test['Criticality'],
                                                     test['NoSuchEvent'])
@@ -516,39 +602,16 @@ class Reporter:
                                         'width="15" height="15">'
                                         '</object>')
                         details = warning_icon + ' ' + test['ReportDetails']
-                    # As rules doesn't have its own baseline, Rules
-                    # and Common Controls need to be handled specially
-                    if product_capitalized == 'Rules':
-                        if 'Not-Implemented' in test['Criticality']:
-                            # The easiest way to identify the
-                            # GWS.COMMONCONTROLS.13.1 results that belong to the
-                            # Common Controls report is they're marked as
-                            # Not-Implemented. This if excludes them from the
-                            # rules report.
-                            continue
-                        report_stats[self._get_summary_category(result)] += 1
-                        table_data.append({
-                            'Control ID': control_id,
-                            'Rule Name': test['Requirement'],
-                            'Result': result,
-                            'Criticality': test['Criticality'],
-                            'Rule Description': test['ReportDetails']})
-                    elif (product_capitalized == 'Commoncontrols'
-                          and baseline_group['GroupName'] == 'System-defined Rules'
-                          and 'Not-Implemented' not in test['Criticality']):
-                        # The easiest way to identify the System-defined Rules
-                        # results that belong to the Common Controls report is
-                        # they're marked as Not-Implemented. This if excludes
-                        # the full results from the Common Controls report.
-                        continue
-                    else:
-                        report_stats[self._get_summary_category(result)] += 1
-                        table_data.append({
-                            'Control ID': control_id,
-                            'Requirement': requirement,
-                            'Result': result,
-                            'Criticality': test['Criticality'],
-                            'Details': details})
+
+                    report_stats[self._get_summary_category(result)] += 1
+                    table_data.append({
+                        'Control ID': control_id,
+                        'Requirement': requirement,
+                        'Result': result,
+                        'Criticality': test['Criticality'],
+                        'Details': details,  
+                        'OmittedEvaluationResult': 'N/A',
+                        'OmittedEvaluationDetails': 'N/A'})
             markdown_group_name = '-'.join(baseline_group['GroupName'].split())
             group_reference_url = (f'{self._github_url}/blob/{Version.current}/'
                                    f'scubagoggles/baselines/{product}.md'
@@ -560,13 +623,19 @@ class Reporter:
             fragments.append(f'<h2>{product_upper}-'
                              f'{baseline_group["GroupNumber"]} '
                              f'{markdown_link}</h2>')
-            fragments.append(self.create_html_table(table_data))
+
+            filtered_table_data = [
+                {k: v for k, v in row.items()
+                if k not in ('OmittedEvaluationResult', 'OmittedEvaluationDetails')}
+                for row in table_data
+            ]
+            fragments.append(self.create_html_table(filtered_table_data))
             results_data.update({'GroupName': baseline_group['GroupName']})
             results_data.update({'GroupNumber': baseline_group['GroupNumber']})
             results_data.update({'GroupReferenceURL': group_reference_url})
             results_data.update({'Controls': table_data})
             json_data.append(results_data)
-        html = self._build_report_html(fragments)
+        html = self._build_report_html(fragments, rules_data)
         with open(f'{out_path}/IndividualReports/{ind_report_name}.html',
                   mode='w', encoding='UTF-8') as html_file:
             html_file.write(html)

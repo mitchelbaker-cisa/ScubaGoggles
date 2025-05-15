@@ -479,7 +479,7 @@ class PolicyAPI:
 
             response = self._get(url, params)
 
-            for group_data in response['groups']:
+            for group_data in response.get('groups', ()):
                 group_id = group_data['id']
                 group_id_map[group_id] = group_data['name']
 
@@ -608,14 +608,42 @@ class PolicyAPI:
             # For the current policy setting, use the returned org unit id
             # to get the org unit name, which is used as the key for the
             # result dictionary.
-            orgunit_id = policy['policyQuery']['orgUnit']
-            orgunit_id = orgunit_id.removeprefix('orgUnits/')
-            orgunit_name = self._orgunit_id_map[orgunit_id]['name']
+
+            if 'orgUnit' in policy['policyQuery']:
+                orgunit_id = policy['policyQuery']['orgUnit']
+                orgunit_id = orgunit_id.removeprefix('orgUnits/')
+                orgunit_data = self._orgunit_id_map[orgunit_id]
+                orgunit_name = orgunit_data['name']
+                path = orgunit_data['path']
+                if len(path) > 1 and orgunit_name != path[1:]:
+                    # The orgunit is below the first level of orgunits in the
+                    # hierarchy.  The name will include the following suffix
+                    # that shows the parent hierarchy where it belongs so it can
+                    # be identified, particularly if the same name is used
+                    # in different suborgunit hierarchies.
+                    parent = path[1:].removesuffix(f'/{orgunit_name}')
+                    orgunit_name += f' (in {parent})'
+            else:
+                # NOTE: a policy setting should always be associated with
+                # an org unit.  In rare cases, an org unit is not provided,
+                # and in this case the policy is associated with the top-level
+                # org unit.
+                log.debug('Org unit data missing for "%s", '
+                          'assuming top-level OU.',
+                          policy['setting']['type'])
+                orgunit_name = self._top_orgunit
 
             if 'group' in policy['policyQuery']:
                 group_id = policy['policyQuery']['group']
                 group_id = group_id.removeprefix('groups/')
-                group_name = self._group_id_map[group_id]
+                # NOTE: the get() handles the case where Google returns
+                # something that doesn't conform to their documented format
+                # (i.e., 'groups/<group-id>').  For example, Google will
+                # return "WORKSPACE_ALL_ADMIN_GROUP" as a value in some
+                # cases.  If the group id value doesn't conform to the
+                # expected format, the value is kept as received as the
+                # group name.
+                group_name = self._group_id_map.get(group_id, group_id)
                 orgunit_name += f' (group "{group_name}")'
 
             # The setting has two layers in the policies dictionary.  Depending
@@ -721,10 +749,33 @@ class PolicyAPI:
         # The defaults apply only to the top-level orgunit.  The top orgunit
         # must contain all settings, and the subordinate orgunits and groups
         # only contain settings that have changed from the top orgunit's
-        # values.  We'll keep track of the default settings actually applied
-        # so they can be reported in the log.
+        # values.
 
         top_ou_policies = policies[self._top_orgunit]
+
+        # For some GWS tenants, there may be inactive SKUs for certain
+        # applications.  For example, the customer may not have an active
+        # SKU that allows them to use the Vault service.  In this case, there
+        # will be no "vault_service_status" returned by the Policy API.
+        # According to Google, any missing service status is due to the
+        # customer not subscribing to the service, so we can assume
+        # that the service is disabled.
+
+        missing_service_status = sorted(s for s in self._expectedPolicySettings
+                                  if s.endswith('_service_status')
+                                  and s not in top_ou_policies)
+
+        for section in missing_service_status:
+            top_ou_policies[section] = {'serviceState': 'DISABLED'}
+
+        if missing_service_status:
+            log.debug('%s: %s - service status missing (assumed DISABLED)',
+                      self._top_orgunit,
+                      ', '.join(s.removesuffix('_service_status')
+                                for s in missing_service_status))
+
+        # We'll keep track of the default settings actually applied so they can
+        # be reported in the log.
 
         applied = defaultdict(dict)
 
@@ -778,7 +829,7 @@ class PolicyAPI:
             if not is_stream:
                 out_stream.close()
 
-    def verify(self, policies: dict) -> bool:
+    def verify(self, policies: dict) -> set:
 
         """Verify that all expected policy settings (see above) are present
         for the top-level orgunit, and that the values of each setting are the
@@ -786,18 +837,16 @@ class PolicyAPI:
 
         We do this verification because while Rego is good at checking for
         policy requirements, it may yield incorrect results when expected
-        settings are missing or values are incorrect.  This verification only
-        issues warnings. so we're not aborting if something is found to be
-        missing or incorrect.  However, if warnings are issued, checks should be
-        done to determine what's wrong with the data returned by Google.
+        settings are missing or values are incorrect.  If any settings that are
+        missing, checks should be done to determine what's wrong with the data
+        returned by the API.
 
         :param dict policies: policy settings returned by get_policies().
-        :return: True if all expected policy settings are found and the setting
-            values are correct types and format.
+        :return: A set containing any missing settings or settings with invalid
+            values.
         """
 
         orgunit = self._top_orgunit
-        policies_ok = True
 
         expected_policy_settings = self._expectedPolicySettings
         orgunit_policies = policies.get(orgunit)
@@ -806,34 +855,23 @@ class PolicyAPI:
             log.warning('No policy settings found for orgunit: %s', orgunit)
             return False
 
-        missing_settings = {n for n in expected_policy_settings
-                            if n not in orgunit_policies}
-
-        if missing_settings:
-            log.warning('Setting(s) missing from %s orgunit: %s',
-                        orgunit,
-                        str(sorted(missing_settings)))
-            policies_ok = False
+        missing_settings = set()
+        invalid_settings = set()
 
         for section, section_data in expected_policy_settings.items():
 
             expected_settings = section_data['settings']
             settings = orgunit_policies.get(section)
             if not settings:
+                for expected_setting in expected_settings:
+                    missing_settings.add(f'{section}.{expected_setting}')
                 continue
-
-            invalid_settings = []
 
             for setting_name, verifier in expected_settings.items():
                 policy_value = settings.get(setting_name)
-                if policy_value is None or not verifier(policy_value):
-                    invalid_settings.append(setting_name)
+                if policy_value is None:
+                    missing_settings.add(f'{section}.{setting_name}')
+                elif not verifier(policy_value):
+                    invalid_settings.add(f'{section}.{setting_name}')
 
-            if invalid_settings:
-                log.warning('Settings missing or values invalid for '
-                            'orgunit %s, resource %s: %s',
-                            orgunit,
-                            section,
-                            sorted(invalid_settings))
-
-        return policies_ok
+        return missing_settings.union(invalid_settings)

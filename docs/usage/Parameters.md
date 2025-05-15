@@ -17,9 +17,11 @@ usage: scubagoggles gws [-h]
                         [--documentpath <directory>]
                         [--outputfoldername <name>]
                         [--outputproviderfilename <name>]
+                        [--outputactionplanfilename <name>]
                         [--outputregofilename <name>]
                         [--outputreportfilename]
                         [--quiet]
+                        [--numberofuuidcharacterstotruncate <number>]
                         [--debug]
                         [--runcached]
                         [--skipexport]
@@ -28,6 +30,9 @@ SCuBA automated conformance check for Google Workspace (GWS) products
 
 options:
   -h, --help            show this help message and exit
+  --credentials <credentials-JSON-file>, -c <credentials-JSON-file>
+                        The location and name of the OAuth / service account credentials json file. Required unless the
+                        credentials path has been saved using the ScubaGoggles setup utility.
   --baselines <baseline> [<baseline> ...], -b <baseline> [<baseline> ...]
                         A list of one or more abbreviated GWS baseline names that the tool will assess. Defaults to all baselines. Choices: calendar, chat,
                         classroom, commoncontrols, drive, gmail, groups, meet, rules, sites
@@ -35,8 +40,6 @@ options:
                         The folder path where both the output JSON & HTML report will be created.
   --outjsonfilename <output-JSON-file>
                         The name of the file that encapsulates all assessment output. Defaults to ScubaResults.
-  --credentials <credentials-JSON-file>, -c <credentials-JSON-file>
-                        The location and name of the OAuth / service account credentials json file.
   --config <YAML-config-file>
                         Local file path to a YAML formatted configuration file. Configuration file parameters can be used in place of command-line
                         parameters. Additional parameters and variables not available on the command line can also be included in the file that will be
@@ -48,7 +51,7 @@ options:
                         The customer ID the tool should run on. Defaults to "my_customer" which will be the domain of the user / service account
                         authenticating.
   --opapath <opa-directory>
-                        The directory containing the OPA executable.
+                        The directory containing the OPA executable. Defaults to ~/.scubagoggles/.
   --regopath <directory>
                         The relative path to the directory contain the folder containing the rego files.
   --documentpath <directory>
@@ -57,11 +60,16 @@ options:
                         The name of the folder created in --outputpath where both the output JSON and the HTML report will be created. Defaults to GWSBaselineConformance. The client's local timestamp will be appended to this name.
   --outputproviderfilename <name>
                         The name of the Provider output json in --outputpath. Defaults to ProviderSettingsExport.
+  --outputactionplanfilename <name>
+                        The name of the Actions Plan output csv in --outputpath. Defaults to ActionsPlan.
   --outputregofilename <name>
                         The name of the Rego output json in --outputpath. Defaults to TestResults.
   --outputreportfilename
                         The name of the main html file homepage created in --outputpath. Defaults to BaselineReports.
   --quiet               This switch suppresses automatically launching a web browser to open the html report output and the loading bar output.
+  --numberofuuidcharacterstotruncate <number>
+                        Controls how many characters will be truncated from the report UUID when appended to  
+                        the end of outjsonfilename. Valid values are 0, 13, 18, 36. Defaults to 18.
   --debug               This switch is used to print debugging information for OPA.
 
 Cached Mode options:

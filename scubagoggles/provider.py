@@ -2,12 +2,13 @@
 provider.py is where the GWS api calls are made.
 """
 
+import logging
 import warnings
 from pathlib import Path
 from tqdm import tqdm
 
 from googleapiclient.discovery import build
-
+from google.auth.exceptions import RefreshError
 from scubagoggles.auth import GwsAuth
 from scubagoggles.policy_api import PolicyAPI
 from scubagoggles.utils import create_subset_inverted_dict, \
@@ -15,15 +16,12 @@ from scubagoggles.utils import create_subset_inverted_dict, \
 from scubagoggles.scuba_constants import ApiReference
 from scubagoggles.robust_dns import RobustDNSClient
 
+log = logging.getLogger(__name__)
+
 # pylint: disable=too-many-instance-attributes
 
 EVENTS = {
-    'calendar': [
-        'CHANGE_CALENDAR_SETTING',
-        'CHANGE_APPLICATION_SETTING',
-        'CREATE_APPLICATION_SETTING',
-        'DELETE_APPLICATION_SETTING'
-    ],
+    'calendar': [],
     'chat': [
         'CHANGE_APPLICATION_SETTING',
         'CREATE_APPLICATION_SETTING',
@@ -32,12 +30,10 @@ EVENTS = {
     'commoncontrols': [
         'CREATE_APPLICATION_SETTING',
         'CHANGE_APPLICATION_SETTING',
+        'SYSTEM_DEFINED_RULE_UPDATED',
         'TOGGLE_CAA_ENABLEMENT',
         'TOGGLE_SERVICE_ENABLED',
-        'WEAK_PROGRAMMATIC_LOGIN_SETTINGS_CHANGED',
         'CHANGE_ALLOWED_TWO_STEP_VERIFICATION_METHODS',
-        'ALLOW_STRONG_AUTHENTICATION',
-        'ENFORCE_STRONG_AUTHENTICATION',
         'ALLOW_SERVICE_FOR_OAUTH2_ACCESS',
         'DISALLOW_SERVICE_FOR_OAUTH2_ACCESS',
         'UNTRUST_DOMAIN_OWNED_OAUTH2_APPS',
@@ -45,8 +41,6 @@ EVENTS = {
         'BLOCK_ALL_THIRD_PARTY_API_ACCESS',
         'UNBLOCK_ALL_THIRD_PARTY_API_ACCESS',
         'SIGN_IN_ONLY_THIRD_PARTY_API_ACCESS',
-        'CHANGE_TWO_STEP_VERIFICATION_ENROLLMENT_PERIOD_DURATION',
-        'CHANGE_TWO_STEP_VERIFICATION_FREQUENCY',
         'DELETE_APPLICATION_SETTING',
         'CHANGE_DATA_LOCALIZATION_FOR_RUSSIA'
     ],
@@ -63,22 +57,14 @@ EVENTS = {
         'CREATE_APPLICATION_SETTING',
         'DELETE_APPLICATION_SETTING'
     ],
-    'groups': [
-        'CHANGE_APPLICATION_SETTING',
-        'CREATE_APPLICATION_SETTING'
-    ],
+    'groups': [],
     'meet': [
         'CHANGE_APPLICATION_SETTING',
         'CREATE_APPLICATION_SETTING',
         'DELETE_APPLICATION_SETTING'
     ],
-    'rules': ['SYSTEM_DEFINED_RULE_UPDATED'],
-    'sites': ['TOGGLE_SERVICE_ENABLED'],
-    'classroom': [
-        'CREATE_APPLICATION_SETTING',
-        'CHANGE_APPLICATION_SETTING',
-        'DELETE_APPLICATION_SETTING'
-    ],
+    'sites': [],
+    'classroom': [],
     'all': [None]
 }
 
@@ -127,6 +113,7 @@ class Provider:
         self._customer_id = customer_id
         self._successful_calls = set()
         self._unsuccessful_calls = set()
+        self._missing_policies = set()
         self._dns_client = RobustDNSClient()
         self._domains = None
 
@@ -160,6 +147,16 @@ class Provider:
         """
 
         return self._unsuccessful_calls
+
+    @property
+    def missing_policies(self):
+
+        """Returns names of policies missing from the policy API output.
+
+        :rtype: set
+        """
+
+        return self._missing_policies
 
     def _initialize_services(self):
 
@@ -400,29 +397,52 @@ class Provider:
             parent_ou = response['organizationUnits'][0]['parentOrgUnitId']
             with self._services['directory'].orgunits() as orgunits:
                 response = orgunits.get(customerId = self._customer_id,
-                                        orgUnitPath = parent_ou).execute()
-            ou_name = response['name']
-            self._successful_calls.add(ApiReference.LIST_OUS.value)
-            return ou_name
+                            orgUnitPath = parent_ou).execute()
+
+        except RefreshError as exc:
+            self._check_scopes(exc)
+
         except Exception as exc:
             warnings.warn(
                 f'Exception thrown while getting top level OU: {exc}',
                 RuntimeWarning
             )
+            self._check_scopes(exc)
             self._unsuccessful_calls.add(ApiReference.LIST_OUS.value)
             return 'Error Retrieving'
+
+        ou_name = response['name']
+        self._successful_calls.add(ApiReference.LIST_OUS.value)
+        return ou_name
 
     def get_tenant_info(self) -> dict:
         """
         Gets the high-level tenant info using the directory API
         """
-        primary_domain = 'Error Retrieving'
-        for domain in self.list_domains():
-            if domain['isPrimary']:
-                primary_domain = domain['domainName']
-        return {
-            'domain': primary_domain,
-            'topLevelOU': self._top_ou
+        tenant_id = ''
+        try:
+            response = self._services['directory'].customers().get(
+                            customerKey = self._customer_id).execute()
+            tenant_id = response.get('id')
+            primary_domain = 'Error Retrieving'
+            for domain in self.list_domains():
+                if domain['isPrimary']:
+                    primary_domain = domain['domainName']
+            return {
+                'ID' : tenant_id,
+                'domain': primary_domain,
+                'topLevelOU': self._top_ou
+            }
+        except Exception as exc:
+            warnings.warn(
+                f'Exception thrown while retrieving customer list: {exc}',
+                RuntimeWarning
+            )
+            self._unsuccessful_calls.add(ApiReference.LIST_CUSTOMERS.value)
+            return {
+                'ID': "",
+                'domain': primary_domain,
+                'topLevelOU': self._top_ou
         }
 
     def get_gws_logs(self, products: list, event: str) -> dict:
@@ -570,7 +590,10 @@ class Provider:
             ou_ids.add(self._top_ou)
             # get all organizational unit data
             product_to_items['organizational_units'] = self.get_ous()
-            for orgunit in product_to_items['organizational_units']['organizationUnits']:
+            orgunits = product_to_items['organizational_units']
+            sub_orgunits = orgunits.get('organizationUnits', ())
+
+            for orgunit in sub_orgunits:
                 ou_ids.add(orgunit['name'])
             # add just organizational unit names to a field]
             product_to_items['organizational_unit_names'] = list(ou_ids)
@@ -601,7 +624,7 @@ class Provider:
 
         with PolicyAPI(self._gws_auth, self._top_ou) as policy_api:
             policies = policy_api.get_policies()
-            policy_api.verify(policies)
+            self._missing_policies = policy_api.verify(policies)
 
         product_to_items['policies'] = policies
 
@@ -635,6 +658,7 @@ class Provider:
 
         product_to_items['successful_calls'] = list(self._successful_calls)
         product_to_items['unsuccessful_calls'] = list(self._unsuccessful_calls)
+        product_to_items['missing_policies'] = list(self._missing_policies)
 
         return product_to_items
 
@@ -671,3 +695,13 @@ class Provider:
             request = resource.list_next(request, response)
 
         return results
+
+    def _check_scopes(self, exc: Exception):
+        # If one of the scopes is not authorized in a Service account the
+        # error is thrown: ('access_denied: Requested client not authorized.',
+        # {'error': 'access_denied', 'error_description': 'Requested client not authorized.'})
+        scopes_list = self._credentials.scopes
+        if 'access_denied: Requested client not authorized.' in str(exc):
+            log.error('Your credential may be missing one'
+                      ' of the following scopes: %s', scopes_list)
+            raise exc

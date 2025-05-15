@@ -3,7 +3,6 @@ package meet
 import future.keywords
 import data.utils
 import data.utils.GetFriendlyEnabledValue
-import data.utils.PolicyApiInUse
 
 MeetEnabled(orgunit) := utils.AppEnabled(input.policies, "meet", orgunit)
 
@@ -19,16 +18,6 @@ LogEvents := utils.GetEvents("meet_logs")
 
 MeetId1_1 := utils.PolicyIdWithSuffix("GWS.MEET.1.1")
 
-LogMessage1_1 := "SafetyDomainLockProto users_allowed_to_join"
-
-Check1_1_OK if {
-    not PolicyApiInUse
-    events := utils.FilterEventsOU(LogEvents, LogMessage1_1, utils.TopLevelOU)
-    count(events) > 0
-}
-
-Check1_1_OK if {PolicyApiInUse}
-
 NonComplianceMessage1_1(value) := sprintf("Who can join meetings is set to: %s",
                                           [value])
 
@@ -42,34 +31,6 @@ GetFriendlyValue1_1(Value) := "all users (including users not signed in with a G
 
 NonCompliantOUs1_1 contains {
     "Name": OU,
-    "Value": NonComplianceMessage1_1(GetFriendlyValue1_1(LastEvent.NewValue))
-}
-if {
-    not PolicyApiInUse
-    some OU in utils.OUsWithEvents
-    Events := utils.FilterEventsOU(LogEvents, LogMessage1_1, OU)
-    count(Events) > 0
-    LastEvent := utils.GetLastEvent(Events)
-    LastEvent.NewValue == "ALL"
-    LastEvent.NewValue != "DELETE_APPLICATION_SETTING"
-}
-
-NonCompliantGroups1_1 contains {
-    "Name": Group,
-    "Value": NonComplianceMessage1_1(GetFriendlyValue1_1(LastEvent.NewValue))
-}
-if {
-    not PolicyApiInUse
-    some Group in utils.GroupsWithEvents
-    Events := utils.FilterEventsGroup(LogEvents, LogMessage1_1, Group)
-    count(Events) > 0
-    LastEvent := utils.GetLastEvent(Events)
-    LastEvent.NewValue == "ALL"
-    LastEvent.NewValue != "DELETE_APPLICATION_SETTING"
-}
-
-NonCompliantOUs1_1 contains {
-    "Name": OU,
     "Value": NonComplianceMessage1_1(GetFriendlyValue1_1(meetAccess))
 } if {
     some OU, settings in input.policies
@@ -80,30 +41,18 @@ NonCompliantOUs1_1 contains {
 
 tests contains {
     "PolicyId": MeetId1_1,
+    "Prerequisites": [
+        "policy/meet_safety_domain.usersAllowedToJoin",
+        "policy/meet_service_status.serviceState"
+    ],
     "Criticality": "Should",
-    "ReportDetails": utils.NoSuchEventDetails(DefaultSafe, utils.TopLevelOU),
-    "ActualValue": "No relevant event for the top-level OU in the current logs",
-    "RequirementMet": DefaultSafe,
-    "NoSuchEvent": true
-}
-if {
-    not PolicyApiInUse
-    DefaultSafe := false
-    not Check1_1_OK
-}
-
-tests contains {
-    "PolicyId": MeetId1_1,
-    "Criticality": "Should",
-    "ReportDetails": utils.ReportDetails(NonCompliantOUs1_1, NonCompliantGroups1_1),
-    "ActualValue": {"NonCompliantOUs": NonCompliantOUs1_1, "NonCompliantGroups": NonCompliantGroups1_1},
+    "ReportDetails": utils.ReportDetails(NonCompliantOUs1_1, []),
+    "ActualValue": {"NonCompliantOUs": NonCompliantOUs1_1},
     "RequirementMet": Status,
     "NoSuchEvent": false
 }
 if {
-    Check1_1_OK
-    Conditions := {count(NonCompliantOUs1_1) == 0, count(NonCompliantGroups1_1) == 0}
-    Status := (false in Conditions) == false
+    Status := count(NonCompliantOUs1_1) == 0
 }
 #--
 
@@ -116,16 +65,6 @@ if {
 #--
 
 MeetId2_1 := utils.PolicyIdWithSuffix("GWS.MEET.2.1")
-
-LogMessage2_1 := "SafetyAccessLockProto meetings_allowed_to_join"
-
-Check2_1_OK if {
-    not PolicyApiInUse
-    events := utils.FilterEventsOU(LogEvents, LogMessage2_1, utils.TopLevelOU)
-    count(events) > 0
-}
-
-Check2_1_OK if {PolicyApiInUse}
 
 NonComplianceMessage2_1(value) := sprintf("What meetings can users join is set to: %s",
                                           [value])
@@ -140,34 +79,6 @@ GetFriendlyValue2_1(Value) := "any meetings (including meetings created with per
 
 NonCompliantOUs2_1 contains {
     "Name": OU,
-    "Value": NonComplianceMessage2_1(GetFriendlyValue2_1(LastEvent.NewValue))
-}
-if {
-    not PolicyApiInUse
-    some OU in utils.OUsWithEvents
-    Events := utils.FilterEventsOU(LogEvents, LogMessage2_1, OU)
-    count(Events) > 0
-    LastEvent := utils.GetLastEvent(Events)
-    LastEvent.NewValue == "ALL"
-    LastEvent.NewValue != "DELETE_APPLICATION_SETTING"
-}
-
-NonCompliantGroups2_1 contains {
-    "Name": Group,
-    "Value": NonComplianceMessage2_1(GetFriendlyValue2_1(LastEvent.NewValue))
-}
-if {
-    not PolicyApiInUse
-    some Group in utils.GroupsWithEvents
-    Events := utils.FilterEventsGroup(LogEvents, LogMessage2_1, Group)
-    count(Events) > 0
-    LastEvent := utils.GetLastEvent(Events)
-    LastEvent.NewValue == "ALL"
-    LastEvent.NewValue != "DELETE_APPLICATION_SETTING"
-}
-
-NonCompliantOUs2_1 contains {
-    "Name": OU,
     "Value": NonComplianceMessage2_1(GetFriendlyValue2_1(meetAccess))
 } if {
     some OU, settings in input.policies
@@ -178,32 +89,18 @@ NonCompliantOUs2_1 contains {
 
 tests contains {
     "PolicyId": MeetId2_1,
+    "Prerequisites": [
+        "policy/meet_safety_access.meetingsAllowedToJoin",
+        "policy/meet_service_status.serviceState"
+    ],
     "Criticality": "Shall",
-    "ReportDetails": utils.NoSuchEventDetails(DefaultSafe, utils.TopLevelOU),
-    "ActualValue": "No relevant event in the current logs",
-    "RequirementMet": DefaultSafe,
-    "NoSuchEvent": true
-}
-if {
-    not PolicyApiInUse
-    DefaultSafe := false
-    not Check2_1_OK
-}
-
-tests contains {
-    "PolicyId": MeetId2_1,
-    "Criticality": "Shall",
-    "ReportDetails": utils.ReportDetails(NonCompliantOUs2_1, NonCompliantGroups2_1),
-    "ActualValue": {"NonCompliantOUs": NonCompliantOUs2_1,
-                    "NonCompliantGroups": NonCompliantGroups2_1},
+    "ReportDetails": utils.ReportDetails(NonCompliantOUs2_1, []),
+    "ActualValue": {"NonCompliantOUs": NonCompliantOUs2_1},
     "RequirementMet": Status,
     "NoSuchEvent": false
 }
 if {
-    Check2_1_OK
-    Conditions := {count(NonCompliantOUs2_1) == 0,
-                   count(NonCompliantGroups2_1) == 0}
-    Status := (false in Conditions) == false
+    Status := count(NonCompliantOUs2_1) == 0
 }
 #--
 
@@ -217,46 +114,8 @@ if {
 
 MeetId3_1 := utils.PolicyIdWithSuffix("GWS.MEET.3.1")
 
-LogMessage3_1 := "SafetyModerationLockProto host_management_enabled"
-
-Check3_1_OK if {
-    not PolicyApiInUse
-    events := utils.FilterEventsOU(LogEvents, LogMessage3_1, utils.TopLevelOU)
-    count(events) > 0
-}
-
-Check3_1_OK if {PolicyApiInUse}
-
 NonComplianceMessage3_1(value) := sprintf("Host management when video calls start is: %s",
                                           [value])
-
-NonCompliantOUs3_1 contains {
-    "Name": OU,
-    "Value": NonComplianceMessage3_1(GetFriendlyEnabledValue(LastEvent.NewValue))
-}
-if {
-    not PolicyApiInUse
-    some OU in utils.OUsWithEvents
-    Events := utils.FilterEventsOU(LogEvents, LogMessage3_1, OU)
-    count(Events) > 0
-    LastEvent := utils.GetLastEvent(Events)
-    LastEvent.NewValue == "false"
-    LastEvent.NewValue != "DELETE_APPLICATION_SETTING"
-}
-
-NonCompliantGroups3_1 contains {
-    "Name": Group,
-    "Value": NonComplianceMessage3_1(GetFriendlyEnabledValue(LastEvent.NewValue))
-}
-if {
-    not PolicyApiInUse
-    some Group in utils.GroupsWithEvents
-    Events := utils.FilterEventsGroup(LogEvents, LogMessage3_1, Group)
-    count(Events) > 0
-    LastEvent := utils.GetLastEvent(Events)
-    LastEvent.NewValue == "false"
-    LastEvent.NewValue != "DELETE_APPLICATION_SETTING"
-}
 
 NonCompliantOUs3_1 contains {
     "Name": OU,
@@ -269,33 +128,19 @@ NonCompliantOUs3_1 contains {
 }
 
 tests contains {
-        "PolicyId": MeetId3_1,
-        "Criticality": "Shall",
-        "ReportDetails": utils.NoSuchEventDetails(DefaultSafe, utils.TopLevelOU),
-        "ActualValue": "No relevant event in the current logs",
-        "RequirementMet": DefaultSafe,
-        "NoSuchEvent": true
-}
-if {
-    not PolicyApiInUse
-    DefaultSafe := false
-    not Check3_1_OK
-}
-
-tests contains {
     "PolicyId": MeetId3_1,
+    "Prerequisites": [
+        "policy/meet_safety_host_management.enableHostManagement",
+        "policy/meet_service_status.serviceState"
+    ],
     "Criticality": "Shall",
-    "ReportDetails": utils.ReportDetails(NonCompliantOUs3_1,
-                                         NonCompliantGroups3_1),
-    "ActualValue": {"NonCompliantOUs": NonCompliantOUs3_1,
-                    "NonCompliantGroups": NonCompliantGroups3_1},
+    "ReportDetails": utils.ReportDetails(NonCompliantOUs3_1, []),
+    "ActualValue": {"NonCompliantOUs": NonCompliantOUs3_1},
     "RequirementMet": Status,
     "NoSuchEvent": false
 }
 if {
-    Check3_1_OK
-    Conditions := {count(NonCompliantOUs3_1) == 0, count(NonCompliantGroups3_1) == 0}
-    Status := (false in Conditions) == false
+    Status := count(NonCompliantOUs3_1) == 0
 }
 #--
 
@@ -309,48 +154,8 @@ if {
 
 MeetId4_1 := utils.PolicyIdWithSuffix("GWS.MEET.4.1")
 
-LogMessage4_1 := concat("", ["Warn for external participants External or ",
-                             "unidentified participants in a meeting are ",
-                             "given a label"])
-
-Check4_1_OK if {
-    not PolicyApiInUse
-    events := utils.FilterEventsOU(LogEvents, LogMessage4_1, utils.TopLevelOU)
-    count(events) > 0
-}
-
-Check4_1_OK if {PolicyApiInUse}
-
 NonComplianceMessage4_1(value) := sprintf("Warning label for external or unidentified meeting participants is: %s",
                                           [value])
-
-NonCompliantOUs4_1 contains {
-    "Name": OU,
-    "Value": NonComplianceMessage4_1(GetFriendlyEnabledValue(LastEvent.NewValue))
-}
-if {
-    not PolicyApiInUse
-    some OU in utils.OUsWithEvents
-    Events := utils.FilterEventsOU(LogEvents, LogMessage4_1, OU)
-    count(Events) > 0
-    LastEvent := utils.GetLastEvent(Events)
-    LastEvent.NewValue == "false"
-    LastEvent.NewValue != "DELETE_APPLICATION_SETTING"
-}
-
-NonCompliantGroups4_1 contains {
-    "Name": Group,
-    "Value": NonComplianceMessage4_1(GetFriendlyEnabledValue(LastEvent.NewValue))
-}
-if {
-    not PolicyApiInUse
-    some Group in utils.GroupsWithEvents
-    Events := utils.FilterEventsGroup(LogEvents, LogMessage4_1, Group)
-    count(Events) > 0
-    LastEvent := utils.GetLastEvent(Events)
-    LastEvent.NewValue == "false"
-    LastEvent.NewValue != "DELETE_APPLICATION_SETTING"
-}
 
 NonCompliantOUs4_1 contains {
     "Name": OU,
@@ -364,30 +169,18 @@ NonCompliantOUs4_1 contains {
 
 tests contains {
     "PolicyId": MeetId4_1,
+    "Prerequisites": [
+        "policy/meet_safety_external_participants.enableExternalLabel",
+        "policy/meet_service_status.serviceState"
+    ],
     "Criticality": "Shall",
-    "ReportDetails": utils.NoSuchEventDetails(DefaultSafe, utils.TopLevelOU),
-    "ActualValue": "No relevant event in the current logs",
-    "RequirementMet": DefaultSafe,
-    "NoSuchEvent": true
-}
-if {
-    not PolicyApiInUse
-    DefaultSafe := true
-    not Check4_1_OK
-}
-
-tests contains {
-    "PolicyId": MeetId4_1,
-    "Criticality": "Shall",
-    "ReportDetails": utils.ReportDetails(NonCompliantOUs4_1, NonCompliantGroups4_1),
-    "ActualValue": {"NonCompliantOUs": NonCompliantOUs4_1, "NonCompliantGroups": NonCompliantGroups4_1},
+    "ReportDetails": utils.ReportDetails(NonCompliantOUs4_1, []),
+    "ActualValue": {"NonCompliantOUs": NonCompliantOUs4_1},
     "RequirementMet": Status,
     "NoSuchEvent": false
 }
 if {
-    Check4_1_OK
-    Conditions := {count(NonCompliantOUs4_1) == 0, count(NonCompliantGroups4_1) == 0}
-    Status := (false in Conditions) == false
+    Status := count(NonCompliantOUs4_1) == 0
 }
 #--
 
@@ -429,6 +222,7 @@ if {
 
 tests contains {
     "PolicyId": MeetId5_1,
+    "Prerequisites": ["reports/v1/activities/list"],
     "Criticality": "Shall",
     "ReportDetails": utils.NoSuchEventDetails(DefaultSafe, utils.TopLevelOU),
     "ActualValue": "No relevant event in the current logs",
@@ -444,6 +238,7 @@ if {
 
 tests contains {
     "PolicyId": MeetId5_1,
+    "Prerequisites": ["reports/v1/activities/list"],
     "Criticality": "Shall",
     "ReportDetails": utils.ReportDetails(NonCompliantOUs5_1, NonCompliantGroups5_1),
     "ActualValue": {"NonCompliantOUs": NonCompliantOUs5_1, "NonCompliantGroups": NonCompliantGroups5_1},
@@ -457,3 +252,41 @@ if {
     Conditions := {count(NonCompliantOUs5_1) == 0, count(NonCompliantGroups5_1) == 0}
     Status := (false in Conditions) == false
 }
+
+##############
+# GWS.MEET.6 #
+##############
+
+#
+# Baseline GWS.MEET.6.1
+#--
+
+MeetId6_1 := utils.PolicyIdWithSuffix("GWS.MEET.6.1")
+
+tests contains {
+    "PolicyId": MeetId6_1,
+    "Prerequisites": [],
+    "Criticality": "Shall/Not-Implemented",
+    "ReportDetails": "Currently not able to be tested automatically; please manually check.",
+    "ActualValue": "",
+    "RequirementMet": false,
+    "NoSuchEvent": true
+}
+#--
+
+#
+# Baseline GWS.MEET.6.2
+#--
+
+MeetId6_2 := utils.PolicyIdWithSuffix("GWS.MEET.6.2")
+
+tests contains {
+    "PolicyId": MeetId6_2,
+    "Prerequisites": [],
+    "Criticality": "Shall/Not-Implemented",
+    "ReportDetails": "Currently not able to be tested automatically; please manually check.",
+    "ActualValue": "",
+    "RequirementMet": false,
+    "NoSuchEvent": true
+}
+#--

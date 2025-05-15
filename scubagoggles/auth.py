@@ -31,11 +31,11 @@ class GwsAuth:
                f'{_base_auth_url}/admin.directory.orgunit.readonly',
                f'{_base_auth_url}/admin.directory.user.readonly',
                f'{_base_auth_url}/admin.directory.group.readonly',
+               f'{_base_auth_url}/admin.directory.customer.readonly',
                f'{_base_auth_url}/apps.groups.settings',
                f'{_base_auth_url}/cloud-identity.policies.readonly')
 
     def __init__(self, credentials_path: Path, svc_account_email: str = None):
-
         """GwsAuth class initialization.
 
         The Google credentials are established when the class instance is
@@ -61,8 +61,8 @@ class GwsAuth:
         if svc_account_email:
             get_credentials = SvcCredentials.from_service_account_file
             self._token = get_credentials(str(credentials_path),
-                                          scopes = self._scopes,
-                                          subject = svc_account_email)
+                                          scopes=self._scopes,
+                                          subject=svc_account_email)
             return
 
         # The token file is written to the same location as the given
@@ -82,7 +82,8 @@ class GwsAuth:
                                                          self._scopes)
 
         try:
-            self._token = flow.run_local_server(timeout_seconds = 300)
+            self._token = flow.run_local_server(
+                timeout_seconds=300, prompt='consent')
         except AttributeError as ae:
             raise RuntimeError('Google authorization timeout') from ae
 
@@ -90,7 +91,6 @@ class GwsAuth:
 
     @property
     def credentials(self) -> Credentials:
-
         """Returns the Google credentials, after a possible refresh if needed.
         Token refresh doesn't apply to service accounts.
 
@@ -103,7 +103,6 @@ class GwsAuth:
         return self._token
 
     def _check_scopes(self):
-
         """Compares the list of scopes in the token file with those defined
         in this class.  If there is a mismatch, the token file is deleted.
         It must be created if the scopes differ because operations that
@@ -123,10 +122,9 @@ class GwsAuth:
         # this class.  The token file will be recreated in the constructor
         # (with the user having to interact with the browser).
         if token_scopes != valid_scopes:
-            self._token_path.unlink(missing_ok = True)
+            self._token_path.unlink(missing_ok=True)
 
     def _load_token(self):
-
         """Loads and existing Google API token file, if it exists, and
         refreshes the token if necessary.
 
@@ -152,7 +150,6 @@ class GwsAuth:
         self._refresh_token()
 
     def _refresh_token(self):
-
         """Refreshes the credentials token if needed and writes the
         new credentials data to the token file.
         """
@@ -162,9 +159,8 @@ class GwsAuth:
             self._save_token()
 
     def _save_token(self):
-
         """Writes the Google credentials to the token JSON file.
         """
 
-        with self._token_path.open(mode = 'w', encoding = 'utf-8') as out:
+        with self._token_path.open(mode='w', encoding='utf-8') as out:
             out.write(self._token.to_json())

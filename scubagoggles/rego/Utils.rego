@@ -1,25 +1,30 @@
 package utils
 import future.keywords
 
-# This is for use in versioning the baseline policy identifiers.  Because all
-# policy identifiers have the same baseline version suffix, it makes sense
-# to define the version once here, so it only has to be changed once.  The
-# policy identifiers are created with the PolicyIdWithSuffix() function.
-#
-# The baseline version suffix value is included by the Orchestrator in the
-# input data for normal policy evaluation.  For testing, the version suffix
-# is not required in the input data, as the default will be used and the
-# results are only processed by OPA (and not the Reporter, which WILL look
-# for matches between policy IDs in the Markdown and OPA results).
+# This is for use in versioning the baseline policy identifiers.  The versions
+# are kept out of the Rego files to minimize updates.  The baseline Markdown
+# files are the source of the policy version suffixes.  Both the default
+# "baseline_suffix" and policy to version mapping ("baseline_versions") are
+# included by the Orchestrator in the input data for normal policy evaluation.
+# For testing, the version suffix is not required in the input data, as the
+# default will be used and the results are only processed by OPA (and not the
+# Reporter, which WILL look for matches between policy IDs in the Markdown and
+# OPA results).
 
-default BaseVersionSuffix := "vM.m"
+default BaseVersionSuffix := "vM"
 
 BaseVersionSuffix := input.baseline_suffix if {
     "baseline_suffix" in object.keys(input)}
 
+PolicyIdSuffix(PolicyIdPrefix) := policyVersionSuffix if {
+    "baseline_versions" in object.keys(input)
+    PolicyIdPrefix in object.keys(input.baseline_versions)
+    policyVersionSuffix := input.baseline_versions[PolicyIdPrefix]
+} else := BaseVersionSuffix
+
 PolicyIdWithSuffix(PolicyIdPrefix) := sprintf("%s%s",
                                               [PolicyIdPrefix,
-                                               BaseVersionSuffix])
+                                               PolicyIdSuffix(PolicyIdPrefix)])
 
 NoSuchEventDetails(DefaultSafe, TopLevelOU) := Message if {
     DefaultSafe == true
@@ -498,6 +503,15 @@ FailTestBothNonCompliant(PolicyId, Output, OUListing, GroupListing) if {
                                          EnumGroupSettings(GroupListing)])
 } else := false
 
+ManualCheckMessage := "Currently not able to be tested automatically; please manually check."
+
+NotImplementedTestResult(PolicyId, Output) if {
+    RuleOutput := FindTestOutput(PolicyId, Output)
+    RuleOutput.RequirementMet == false
+    RuleOutput.NoSuchEvent
+    RuleOutput.ReportDetails == ManualCheckMessage
+} else := false
+
 TestResult(PolicyId, Output, ReportDetailString, RequirementMet) := true if {
     RuleOutput := FindTestOutput(PolicyId, Output)
     RuleOutput.RequirementMet == RequirementMet
@@ -558,12 +572,13 @@ AppEnabled(policies, appName, orgunit) if {
 # been explicitly set in the given orgunit or group.  The above functions will
 # tell you whether the app is enabled, but its state may be due to inheriting
 # the state from the top-level orgunit.  In some cases, you need to know
-# whether the state has been explicitly set (not inherited).
+# whether the state has been explicitly set (not inherited).  This function
+# returns "ENABLED", "DISABLED" if explicitly set; it's undefined otherwise.
 
 AppExplicitStatus(policies, appName, orgunit) := appState if {
     serviceStatusName := AppServiceStatusName(appName)
     appState := upper(policies[orgunit][serviceStatusName].serviceState)
-} else := ""
+}
 
 # There are a lot of policies that have enabled/disabled states.  The states
 # (values) in the log events are strings ("true", "false), while the states
@@ -598,7 +613,11 @@ DurationToSeconds(duration) := durationSeconds if {
 # will convert the given seconds to a duration other than seconds that will
 # (hopefully) make more sense to the user.
 
-GetFriendlyDuration(Seconds) := "30 days" if {
+GetFriendlyDuration(Seconds) := "180 days" if {
+    Seconds == 15552000
+} else := "90 days" if {
+    Seconds == 7776000
+} else := "30 days" if {
     Seconds == 2592000
 } else := "14 days" if {
     Seconds == 1209600
