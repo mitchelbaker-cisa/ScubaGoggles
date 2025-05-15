@@ -1,4 +1,4 @@
-name: Publish Python distribution to PyPI
+name: Publish ScubaGoggles to PyPI
 on:
   push:
     paths:
@@ -38,7 +38,7 @@ jobs:
 
   publish-to-pypi:
     name: >-
-      Publish Python distribution to PyPI
+      Publish ScubaGoggles to PyPI
     if: startsWith(github.ref, 'refs/tags/')
     needs:
       - build
@@ -58,7 +58,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
   
   publish-to-testpypi:
-    name: Publish Python distribution to TestPyPI
+    name: Publish ScubaGoggles to TestPyPI
     needs:
       - build
     runs-on: ubuntu-latest
@@ -73,7 +73,7 @@ jobs:
         with:
           name: python-package-distributions
           path: dist/
-      - name: Publish distribution to TestPyPI
+      - name: Publish ScubaGoggles to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
