@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/scubagoggles
+      url: https://test.pypi.org/p/scubagoggles-test
     permissions:
       id-token: write
     steps:
