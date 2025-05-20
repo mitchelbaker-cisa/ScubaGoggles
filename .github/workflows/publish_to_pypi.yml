@@ -42,11 +42,11 @@ jobs:
     needs:
     - build
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/scubagoggles
     permissions:
       id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/p/scubagoggles-test
     steps:
     - name: Download all dists
       uses: actions/download-artifact@v4
@@ -61,11 +61,11 @@ jobs:
     needs:
     - build
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
     environment:
       name: testpypi
       url: https://test.pypi.org/p/scubagoggles-test
-    permissions:
-      id-token: write
     steps:
     - name: Download all dists
       uses: actions/download-artifact@v4
