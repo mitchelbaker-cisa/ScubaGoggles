@@ -49,7 +49,7 @@ jobs:
       id-token: write
     environment:
       name: pypi
-      url: https://pypi.org/p/scubagoggles-test
+      url: https://pypi.org/p/test-scubagoggles
     steps:
     - name: Download all dists
       uses: actions/download-artifact@v4
@@ -68,7 +68,7 @@ jobs:
       id-token: write
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/scubagoggles-test
+      url: https://test.pypi.org/p/test-scubagoggles
     steps:
     - name: Download all dists
       uses: actions/download-artifact@v4
