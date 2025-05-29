@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "scubagoggles"
+name = "test-scubagoggles"
 dynamic = ["version"]
 classifiers = ["Development Status :: 4 - Beta",
                "Intended Audience :: Information Technology",
